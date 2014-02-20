@@ -157,11 +157,12 @@ NumericMatrix CrossProd(NumericMatrix A,NumericMatrix B) {
 }
 
 double CrossProdVec(NumericVector a,NumericVector b) {
-    NumericVector x = a.size();
+    int kstop = a.size();
     double ans;
     
-    x = a*b;
-    ans = std::accumulate(x.begin(),x.end(), 0.0);
+    for(int k=0; k < kstop; k++) {
+         ans = ans + a(k)*b(k);
+    }
     return ans;
 }
 

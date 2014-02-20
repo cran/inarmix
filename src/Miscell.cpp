@@ -25,7 +25,7 @@ NumericMatrix Rinv_compute(double alpha,int T)  {
   NumericMatrix ans(T,T);
   double det1, alpha_sq;
   
-  alpha_sq = pow(alpha,2);  
+  alpha_sq = alpha*alpha;  
   det1 = 1/(1 - alpha_sq);    
   
   if(T > 2)  {
@@ -63,9 +63,9 @@ NumericMatrix Rsand_compute(double alpha,int T)  {
   NumericMatrix ans(T,T);
   double det1, det2, alpha_sq;
   
-  alpha_sq = pow(alpha,2);
+  alpha_sq = alpha*alpha;
   det1 = 1/(1 - alpha_sq);
-  det2 = -(pow(det1,2));    
+  det2 = -(det1*det1);    
   
   if(T > 2)  {   
     ans(0,0) = 2*alpha*det2;
@@ -133,8 +133,7 @@ double snbinom_scal(double x,double size,double prob,int arg)  {
       else  {
           pp = ::Rf_dnbinom(x,size,prob,0);
           scorefn = size/prob - x/(1 - prob);
-          ans = pp*scorefn;
-          
+          ans = pp*scorefn;       
       }
       return ans;
 }
@@ -202,7 +201,10 @@ NumericMatrix XX,int give_log)  {
      double loglik, lik_count = 0.0, theta_c, theta_io, theta_in;
      NumericVector thet_vec(T);
      
-     thet_vec = exp(MatVecMult(XX,beta))/gamma;
+     thet_vec = MatVecMult(XX,beta);
+     for(int k=0; k < T; k++) {
+         thet_vec(k) = exp(thet_vec(k))/gamma;
+     }
     
      loglik = ::Rf_dnbinom(yy(0),thet_vec(0),1/(1+gamma),1);
      for(int t=1;t < T; t++)  {
@@ -332,9 +334,9 @@ NumericMatrix XX)   {
     
     NumericMatrix score(T,len_beta + 2);
     
-    thet_vec = exp(MatVecMult(XX,beta));
+    thet_vec = MatVecMult(XX,beta);
     for(int k=0; k < T;k++) {
-        thet_vec(k) = thet_vec(k)/gamma;
+        thet_vec(k) = exp(thet_vec(k))/gamma;
     }
     trans = ::Rf_dnbinom(yy(0),thet_vec(0),inv_scale,0);
     // What if T==1?
@@ -351,21 +353,24 @@ NumericMatrix XX)   {
     
     for(int t=1; t<T ; t++)  {
            tau = std::min(yy(t),yy(t-1));
-           NumericVector upvec(tau + 1);
-           NumericVector db(tau + 1), dn(tau+1), dbconv(tau+1); 
-           
-           for(int k = 0; k < tau + 1; k++) {
-               upvec(k) = k;
-           }
+           NumericVector upvec(tau + 1), downvec(tau + 1);
+           NumericVector db(tau + 1), dn(tau+1), dbconv(tau+1);
+           NumericVector sb(tau + 1), sbb(tau+1), snb(tau+1), snbb(tau+1); 
            NumericMatrix W(len_beta + 2,tau + 1); 
 
            theta_c = alpha*sqrt(thet_vec(t-1)*thet_vec(t));
            theta_io = thet_vec(t-1) - theta_c;
            theta_in = thet_vec(t) - theta_c;
 
+           for(int k = 0; k < tau + 1; k++) {
+               upvec(k) = k;
+               downvec(k) = yy(t) - upvec(k);
+               dn(k) = ::Rf_dnbinom(yy(t) - upvec(k),theta_in,inv_scale,0);
+           }
            db = dbetbinVec(upvec,yy(t-1),theta_c,theta_io);
-           dn = dnbinom(yy(t) - upvec,theta_in,inv_scale);
-           dbconv = db*dn;
+           for(int k=0; k < tau + 1; k++) {
+               dbconv(k) = db(k)*dn(k);
+           }
 
            for(int i=0;i < len_beta;i++)  {
                 b1 = (theta_c*(XX(t-1,i) + XX(t,i)))/2;
@@ -379,12 +384,23 @@ NumericMatrix XX)   {
            partial2(len_beta+1) = -theta_io/gamma;
            partial3(len_beta) = -theta_c/alpha;
            partial3(len_beta+1) = -theta_in/gamma;
-           partial4(len_beta+1) = -pow(inv_scale,2);
+           partial4(len_beta+1) = -(inv_scale*inv_scale);
            
-           W = OuterP(partial1,dn*sbetbin(upvec,yy(t-1),theta_c,theta_io,1),0);  
-           W += OuterP(partial2,dn*sbetbin(upvec,yy(t-1),theta_c,theta_io,2),0);
-           W += OuterP(partial3,db*snbinom(yy(t) - upvec,theta_in,inv_scale,1),0);
-           W += OuterP(partial4,db*snbinom(yy(t) - upvec,theta_in,inv_scale,2),0);
+           sb = sbetbin(upvec,yy(t-1),theta_c,theta_io,1);
+           sbb = sbetbin(upvec,yy(t-1),theta_c,theta_io,2);
+           snb = snbinom(downvec,theta_in,inv_scale,1);
+           snbb = snbinom(downvec,theta_in,inv_scale,2);
+       //    W = OuterP(partial1,dn*sbetbin(upvec,yy(t-1),theta_c,theta_io,1),0);
+       
+           for(int i=0;i < len_beta + 2;i++){
+              for(int j=0;j < tau + 1;j++){
+                 W(i,j) = partial1(i)*sb(j)*dn(j)  + partial2(i)*sbb(j)*dn(j) + partial3(i)*snb(j)*db(j) + partial4(i)*snbb(j)*db(j);
+              }
+           }
+
+        //   W += OuterP(partial2,dn*sbetbin(upvec,yy(t-1),theta_c,theta_io,2),0);
+        //   W += OuterP(partial3,db*snbinom(yy(t) - upvec,theta_in,inv_scale,1),0);
+        //   W += OuterP(partial4,db*snbinom(yy(t) - upvec,theta_in,inv_scale,2),0);
            
            trans = std::accumulate(dbconv.begin(),dbconv.end(), 0.0);
            score_hold = RowSums(W);
@@ -524,6 +540,7 @@ NumericVector yy,NumericMatrix XX)  {
    NumericVector est_eq(q*nclasses);
    NumericVector smu_vec(T);
    NumericVector ismu_vec(T);
+   NumericVector mu_vec(T);
 
    NumericMatrix WStore(q*nclasses,q*nclasses);
    NumericMatrix WeightMat(nclasses-1,q*nclasses);
@@ -552,19 +569,23 @@ NumericVector yy,NumericMatrix XX)  {
        alpha = alpha_vec(i);
        gamma = gamma_vec(i);
        inv_scale = 1.0/(1.0 + gamma);
-       alpha_sq = pow(alpha,2);
+       alpha_sq = alpha*alpha;
     
        const1 = (-2)*(alpha/(1 - alpha_sq));
-       const2 = (2*(1 + alpha_sq))/(pow(1 - alpha_sq,2));
+       const2 = (2*(1 + alpha_sq))/((1 - alpha_sq)*(1 - alpha_sq));
 
 
         R_inv = Rinv_compute(alpha,T);
         R_sand = Rsand_compute(alpha,T);
         R = R_compute(alpha,T);
       
-        smu_vec = exp(MatVecMult(XX,beta/2));
-        ismu_vec = exp(MatVecMult(XX,-beta/2));
-        
+      //  smu_vec = exp(MatVecMult(XX,beta/2));
+        //ismu_vec = exp(MatVecMult(XX,-beta/2));
+        mu_vec = MatVecMult(XX,beta);
+        for(int k=0; k < T;k++) {
+               smu_vec(k) = exp(mu_vec(k)/2);
+               ismu_vec(k) = exp(-mu_vec(k)/2);
+        }
         
         // Upper Right
        //A_1 = inv_scale*CrossProd(smu_vec*XX,MatVecMult(R_inv,smu_vec*XX));

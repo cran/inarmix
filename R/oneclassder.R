@@ -38,27 +38,27 @@ OuterProd <- function(beta,alpha,gamma,nvec,ylist,Xlist)  {
     times <- c(1:T)
     H <- abs(outer(times, times, "-"))
     R <- alpha^H
-      
+    
     len.beta <- length(beta)
     A.1 <- crossprod(A2%*%X.tmp,R.inv%*%A2%*%X.tmp)/(1 + gamma) 
     A.2 <- matrix(0,nrow=2,ncol=len.beta)
     A.3 <- matrix(0,nrow=2,ncol=2)
-      
+    
     for(k in 1:len.beta)  {
-       X.special <- outer(X.tmp[,k],X.tmp[,k],FUN="+")/2                
-       Var.mat <- (A2%*%R%*%A2)
-       V1 <- X.special*(Var.mat)
-       inv.alpha <- (A%*%R.sand%*%A)
-       inv.gamma <- (A%*%R.inv%*%A)/(1 + gamma)
-        
-       A.2[1,k] <- sum(V1*inv.alpha) 
-       A.2[2,k] <- sum(V1*inv.gamma)
+      X.special <- outer(X.tmp[,k],X.tmp[,k],FUN="+")/2                
+      Var.mat <- (A2%*%R%*%A2)
+      V1 <- X.special*(Var.mat)
+      inv.alpha <- (A%*%R.sand%*%A)
+      inv.gamma <- (A%*%R.inv%*%A)/(1 + gamma)
+      
+      A.2[1,k] <- sum(V1*inv.alpha) 
+      A.2[2,k] <- sum(V1*inv.gamma)
     }
     A.3[1,1] <- const2*(T-1)
     A.3[1,2] <- A.3[2,1] <- (const1*(T-1))/(1 + gamma)
     A.3[2,2] <- T/((1 + gamma)^2) 
     A.4 <- matrix(0,nrow=len.beta,ncol=2)
-      
+    
     Der.mat <- cbind(rbind(A.1,A.2),rbind(A.4,A.3))
     DD <- DD + Der.mat  
   }
@@ -125,5 +125,3 @@ R.compute <- function(alpha,T)  {
     return(res)
   }
 }
-
-

@@ -10,7 +10,7 @@ Appropriate for longitudinal data when the responses are counts
 and when the correlation structure is assumed to be AR(1).
 }
 \usage{
-inarmix(formula,nclasses=1,id,data,initvals=NULL,maxiter=200,stoptol=1e-7,
+inarmix(formula,nclasses=1,id,data,initvals=NULL,maxiter=200,stoptol=1e-5,
         num.restarts=1,time=NULL,dropthresh=.01)
 }
 \arguments{

@@ -53,7 +53,7 @@ SEXP ylist,SEXP Xlist,SEXP nvecs)  {
      int len_beta = as<int>(lenbeta);
     
      int m = nvec.size();
-     int m_sq = pow(m,2);
+     int m_sq = m*m;
      int nclasses = post_probs.nrow();
      int q = len_beta + 2;
      int count=0;
